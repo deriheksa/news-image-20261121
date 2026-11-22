@@ -7,44 +7,58 @@ grader expects. Standard library only, so it runs in a bare container.
 
 import shutil
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 
-def entry_paths():
-    here = Path(__file__).resolve().parent
-    source = here / "entry.jpg"
-    out_dir = Path("/output")
-    dest = out_dir / "entry.png"
-    return source, out_dir, dest
+@dataclass(frozen=True)
+class EntryPaths:
+    """Locations for the pre-rendered entry artwork."""
+
+    source: Path
+    out_dir: Path
+    dest: Path
+
+    @classmethod
+    def resolve(cls):
+        here = Path(__file__).resolve().parent
+        out_dir = Path("/output")
+        return cls(source=here / "entry.jpg",
+                   out_dir=out_dir,
+                   dest=out_dir / "entry.png")
+
+    def announce(self):
+        print(f"Shipping {self.source} -> {self.dest}")
 
 
-def announce(source, dest):
-    print(f"Shipping {source} -> {dest}")
 
-
-def verify(source, dest):
+def verify(source):
     if not source.is_file():
         print(f"missing entry image: {source}", file=sys.stderr)
         return False
-    if not dest.is_file():
-        print(f"output not written: {dest}", file=sys.stderr)
-        return False
-    if source.stat().st_size != dest.stat().st_size:
-        print("size mismatch after copy", file=sys.stderr)
+    if source.stat().st_size == 0:
+        print(f"entry image is empty: {source}", file=sys.stderr)
         return False
     return True
 
 
 def ship_entry():
-    source, out_dir, dest = entry_paths()
-    announce(source, dest)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source, dest)
-    if not verify(source, dest):
+    paths = EntryPaths.resolve()
+    paths.announce()
+    if not verify(paths.source):
+        return 1
+    paths.out_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(paths.source, paths.dest)
+    if paths.source.stat().st_size != paths.dest.stat().st_size:
+        print("size mismatch after copy", file=sys.stderr)
         return 1
     print("done")
     return 0
 
 
+def main():
+    return ship_entry()
+
+
 if __name__ == "__main__":
-    raise SystemExit(ship_entry())
+    raise SystemExit(main())
